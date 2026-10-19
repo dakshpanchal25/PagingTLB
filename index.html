@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paging TLB: Hit/Miss Analyzer</title>
+  <meta name="description" content="Clean, educational simulator for Virtual Memory, Paging, Traditional TLB, and Coalesced TLB with Prefetching.">
+  
+  <!-- Google Fonts: Plus Jakarta Sans for UI, JetBrains Mono for addresses and numbers -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5.3.3 CSS & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <!-- Custom Light Theme Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-body-light text-navy">
+
+  <!-- =========================================================================
+       TOP APPLICATION HEADER
+       ========================================================================= -->
+  <header class="app-header py-3 border-bottom sticky-top">
+    <div class="container-fluid px-lg-5 d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="brand-icon">
+          <i class="bi bi-cpu-fill text-primary fs-3"></i>
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 mb-0 fw-bold tracking-tight text-navy">Paging TLB: Hit/Miss Analyzer</h1>
+            <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fs-xs">Educational Simulator</span>
+          </div>
+          <p class="text-secondary small mb-0 d-none d-md-block">
+            Virtual Memory Address Translation Simulator &bull; Traditional &amp; Coalesced TLB
+          </p>
+        </div>
+      </div>
+
+      <!-- Theory Panel Toggle Button -->
+      <div>
+        <button id="btnToggleLearnMore" class="btn btn-outline-primary btn-sm rounded-pill d-flex align-items-center gap-1 px-3 shadow-sm" type="button" data-bs-toggle="collapse" data-bs-target="#learnMoreDrawer" aria-expanded="false" aria-controls="learnMoreDrawer">
+          <i class="bi bi-journal-text"></i>
+          <span>Theory Guide</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       MAIN CONTENT CONTAINER
+       ========================================================================= -->
+  <main class="container-fluid px-lg-5 py-4">
+
+    <!-- =========================================================================
+         SECTION A: CONFIGURATION & USER INPUTS
+         ========================================================================= -->
+    <section class="card card-custom p-4 mb-4" id="sectionConfiguration" aria-label="Configuration & Controls">
+      
+      <!-- Header & Mode Switcher -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
+        <div>
+          <h4 class="fw-bold text-navy mb-1 d-flex align-items-center gap-2">
+            <i class="bi bi-sliders2 text-primary"></i>
+            <span>Simulation Configuration &amp; Inputs</span>
+          </h4>
+          <p class="text-secondary small mb-0">
+            Configure hardware parameters or select an editable preset. All fields remain fully interactive.
+          </p>
+        </div>
+
+        <!-- Mode Segmented Control -->
+        <div class="mode-segmented-control bg-light border p-1 rounded-pill d-flex align-items-center gap-1 shadow-sm">
+          <button type="button" class="btn btn-sm rounded-pill mode-btn active" id="btnModeTraditional" data-mode="traditional">
+            <i class="bi bi-hdd me-1"></i><span>1. Traditional TLB</span>
+          </button>
+          <button type="button" class="btn btn-sm rounded-pill mode-btn" id="btnModeResearch" data-mode="research">
+            <i class="bi bi-lightning-charge me-1"></i><span>2. Coalesced &amp; Prefetch</span>
+          </button>
+          <button type="button" class="btn btn-sm rounded-pill mode-btn" id="btnModeCompare" data-mode="compare">
+            <i class="bi bi-layout-split me-1"></i><span>3. Compare Both</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Editable Configuration Form -->
+      <form id="configForm" class="row g-3 mb-3">
+        
+        <!-- Input 1: Page Size -->
+        <div class="col-sm-6 col-md-3">
+          <label for="inputPageSize" class="form-label small fw-bold text-navy mb-1">
+            Page Size (Bytes) <span class="text-danger">*</span>
+          </label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-file-earmark-break"></i></span>
+            <input type="number" class="form-control form-control-sm font-monospace border-start-0" id="inputPageSize" min="1" value="100" placeholder="e.g. 100" required>
+          </div>
+          <div class="form-text fs-xs text-secondary">E.g., 100, 256, 4096 bytes</div>
+        </div>
+
+        <!-- Input 2: TLB Capacity -->
+        <div class="col-sm-6 col-md-3">
+          <label for="inputTlbCapacity" class="form-label small fw-bold text-navy mb-1">
+            TLB Capacity (Slots) <span class="text-danger">*</span>
+          </label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-grid-3x3"></i></span>
+            <input type="number" class="form-control form-control-sm font-monospace border-start-0" id="inputTlbCapacity" min="1" max="16" value="3" placeholder="1-16" required>
+          </div>
+          <div class="form-text fs-xs text-secondary">Cache slots (1 to 16)</div>
+        </div>
+
+        <!-- Input 3: Page Table Mappings -->
+        <div class="col-md-6">
+          <label for="inputPageTable" class="form-label small fw-bold text-navy mb-1">
+            Page Table Mappings (VPN:PFN pairs) <span class="text-danger">*</span>
+          </label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-link-45deg"></i></span>
+            <input type="text" class="form-control form-control-sm font-monospace border-start-0" id="inputPageTable" value="0:5, 1:2, 2:7, 3:1, 4:9" placeholder="0:5, 1:2, 2:7, 3:1, 4:9" required>
+          </div>
+          <div class="form-text fs-xs text-secondary">Format: Comma-separated <code>VPN:PFN</code> pairs</div>
+        </div>
+
+        <!-- Input 4: Virtual Address Sequence -->
+        <div class="col-12">
+          <label for="inputAddressSequence" class="form-label small fw-bold text-navy mb-1">
+            Virtual Address Access Sequence <span class="text-danger">*</span>
+          </label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light text-secondary border-end-0"><i class="bi bi-list-ol"></i></span>
+            <input type="text" class="form-control form-control-sm font-monospace border-start-0" id="inputAddressSequence" value="120, 380, 120, 250" placeholder="120, 380, 120, 250" required>
+          </div>
+          <div class="form-text fs-xs text-secondary">Comma-separated integer virtual memory addresses requested by CPU</div>
+        </div>
+
+        <!-- Validation Error Message Alert -->
+        <div class="col-12" id="validationAlertContainer" style="display: none;">
+          <div class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-0" id="validationAlert">
+            <i class="bi bi-exclamation-triangle-fill fs-6"></i>
+            <span id="validationAlertMsg">Configuration error message</span>
+          </div>
+        </div>
+
+      </form>
+
+      <!-- Presets & Primary Simulation Controls Bar -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 rounded bg-light border">
+        
+        <!-- Editable Sample Presets -->
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <span class="text-secondary small fw-semibold text-uppercase d-flex align-items-center gap-1">
+            <i class="bi bi-bookmark-star text-primary"></i> Presets:
+          </span>
+          <button type="button" class="btn btn-sm btn-preset active" id="presetNormal" title="Preset 1: Demonstrates ordinary TLB hits, misses, and page-table walks">
+            <i class="bi bi-hdd me-1 text-primary"></i><strong>Preset 1: Normal TLB</strong>
+          </button>
+          <button type="button" class="btn btn-sm btn-preset" id="presetCoalesced" title="Preset 2: Consecutive mappings demonstrating block coalescing and prefetching">
+            <i class="bi bi-lightning-charge me-1 text-purple"></i><strong>Preset 2: Coalesced TLB</strong>
+          </button>
+        </div>
+
+
+        <!-- Essential Simulation Action Controls -->
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <button type="button" class="btn btn-primary btn-sm fw-bold d-flex align-items-center gap-1 px-3 shadow-sm" id="btnStartSim" title="Apply the currently entered values and initialize a fresh simulation">
+            <i class="bi bi-play-circle-fill"></i>
+            <span>Start Simulation</span>
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm px-3 rounded-pill fw-bold d-flex align-items-center gap-1 shadow-sm" id="btnPrevStep" title="Go back to the previous translation state">
+            <i class="bi bi-skip-backward-fill"></i>
+            <span>Previous Step</span>
+          </button>
+          <button type="button" class="btn btn-primary btn-sm px-3 rounded-pill fw-bold d-flex align-items-center gap-1 shadow-sm" id="btnNextStep" title="Advance one address translation step">
+            <span>Next Step</span>
+            <i class="bi bi-skip-forward-fill"></i>
+          </button>
+          <button type="button" class="btn btn-success btn-sm px-3 rounded-pill fw-bold d-flex align-items-center gap-1 shadow-sm" id="btnPlayPause" title="Play or pause continuous step animation">
+            <i class="bi bi-play-fill fs-6" id="playPauseIcon"></i>
+            <span id="playPauseText">Play</span>
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm px-3 rounded-pill d-flex align-items-center gap-1" id="btnRunAll" title="Run remaining address sequence to completion">
+            <i class="bi bi-fast-forward-fill"></i>
+            <span>Run All</span>
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm px-3 rounded-pill d-flex align-items-center gap-1" id="btnReset" title="Reset simulation state to step 0">
+            <i class="bi bi-arrow-counterclockwise"></i>
+            <span>Reset</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Live Statistics & Address Sequence Stream -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3 pt-3 border-top">
+        
+        <!-- Main Statistics: TLB Hits, TLB Misses, Hit Rate -->
+        <div class="d-flex align-items-center gap-2 font-monospace fs-xs">
+          <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+            <i class="bi bi-check-circle-fill me-1"></i>TLB Hits: <strong id="quickHitsCount">0</strong>
+          </span>
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2">
+            <i class="bi bi-x-circle-fill me-1"></i>TLB Misses: <strong id="quickMissesCount">0</strong>
+          </span>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+            <i class="bi bi-pie-chart-fill me-1"></i>Hit Rate: <strong id="quickHitRate">0.0%</strong>
+          </span>
+        </div>
+
+        <!-- Step Counter -->
+        <span class="fs-xs font-monospace text-secondary" id="sequenceStepCounter">0 / 0 Completed</span>
+
+      </div>
+
+      <!-- Address Sequence Ribbon -->
+      <div class="address-ribbon-container mt-2 p-2 rounded bg-light border">
+        <div class="address-ribbon d-flex align-items-center gap-2 py-1" id="addressRibbon">
+          <!-- Address chips rendered dynamically -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =========================================================================
+         SECTION B: MAIN VISUAL SIMULATION & FOUR-STAGE PIPELINE
+         ========================================================================= -->
+    <section class="card card-custom p-4 mb-4" id="sectionMainSimulation" aria-label="Main Visual Simulation">
+      
+      <!-- Section Header with Active Outcome Badge -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
+        <div>
+          <h4 class="fw-bold text-navy mb-1 d-flex align-items-center gap-2">
+            <i class="bi bi-diagram-3-fill text-primary"></i>
+            <span>Address Translation Pipeline</span>
+          </h4>
+          <p class="text-secondary small mb-0">
+            Four-stage hardware data-path: Virtual Address &rarr; Decomposition &rarr; TLB Lookup &rarr; Physical Address.
+          </p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge px-3 py-2 fs-6 fw-bold text-uppercase shadow-sm" id="lookupOutcomeBadge">
+            <i class="bi bi-circle me-1"></i> Standby
+          </span>
+        </div>
+      </div>
+
+      <!-- Live Event Narration Banner -->
+      <div class="narration-banner p-3 mb-4 rounded-3 shadow-sm" id="narrationBanner">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-3">
+            <div class="narration-icon-box" id="narrationIcon">
+              <i class="bi bi-info-circle-fill text-primary fs-3"></i>
+            </div>
+            <div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge rounded-pill bg-light border text-secondary fs-xs text-uppercase font-monospace" id="narrationPhaseBadge">Ready</span>
+                <span class="fs-xs text-secondary font-monospace" id="narrationStepCounter">Step 0 of 0</span>
+              </div>
+              <div class="narration-text fw-bold text-navy mt-1" id="narrationText">
+                Click <strong>Next Step</strong> or <strong>Play</strong> to watch the virtual address move through the memory system.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Single Simulation View: Traditional & Research Modes -->
+      <div id="singleSimulationView">
+        
+        <!-- Animated 2D Hardware Data-Path Track & Moving Address Packet -->
+        <div class="pipeline-packet-rail-container mb-3 p-2 rounded bg-light border" id="pipelinePacketRailContainer">
+          <div class="d-flex align-items-center justify-content-between mb-1 px-2">
+            <span class="fs-xs fw-bold text-secondary text-uppercase d-flex align-items-center gap-1">
+              <i class="bi bi-cpu text-primary"></i> 2D Hardware Data-Path Track:
+            </span>
+            <span class="badge bg-white text-secondary border font-monospace fs-xs" id="packetStageStatus">
+              Stage 1: Awaiting Virtual Address
+            </span>
+          </div>
+          <div class="packet-track-wrapper position-relative my-2">
+            <div class="packet-track-line">
+              <div class="packet-track-fill" id="packetTrackFill" style="width: 0%;"></div>
+            </div>
+            <!-- Interactive 2D Moving Address Packet -->
+            <div class="moving-address-packet shadow-sm" id="movingAddressPacket" style="left: 0%;">
+              <i class="bi bi-box-seam me-1 text-primary" id="packetIcon"></i>
+              <strong id="packetDisplayVal">VA --</strong>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between px-2 pt-1 text-muted fs-xs font-monospace">
+            <span>Stage 1: CPU</span>
+            <span>Stage 2: Split</span>
+            <span>Stage 3: TLB Probe</span>
+            <span>Stage 4: RAM Access</span>
+          </div>
+        </div>
+
+        <!-- Four-Stage Horizontal Pipeline -->
+        <div class="pipeline-grid mb-4" id="pipelineGrid">
+          
+          <!-- STAGE 1: Virtual Address -->
+          <div class="pipeline-node" id="nodeVirtualAddress">
+            <div class="node-header">
+              <span class="node-step-tag">STAGE 1</span>
+              <span class="node-title"><i class="bi bi-cpu me-1"></i>Virtual Address</span>
+            </div>
+            <div class="node-body text-center">
+              <div class="display-value font-monospace text-primary" id="dispVirtualAddress">--</div>
+              <div class="small text-secondary mt-1">CPU Requested Address</div>
+            </div>
+          </div>
+
+          <!-- STAGE 2: Address Decomposition (VPN & Offset) -->
+          <div class="pipeline-node" id="nodeDecomposition">
+            <div class="node-header">
+              <span class="node-step-tag">STAGE 2</span>
+              <span class="node-title"><i class="bi bi-segmented-nav me-1"></i>Decomposition</span>
+            </div>
+            <div class="node-body">
+              <div class="decomp-row mb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="decomp-label text-primary">VPN (Page #)</span>
+                  <span class="display-sm font-monospace text-primary fw-bold" id="dispVPN">--</span>
+                </div>
+                <div class="decomp-formula text-muted fs-xs font-monospace" id="dispVpnFormula">
+                  &lfloor;VA / PageSize&rfloor;
+                </div>
+              </div>
+
+              <div class="decomp-row">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="decomp-label text-amber">Offset</span>
+                  <span class="display-sm font-monospace text-amber fw-bold" id="dispOffset">--</span>
+                </div>
+                <div class="decomp-formula text-muted fs-xs font-monospace" id="dispOffsetFormula">
+                  VA % PageSize
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- STAGE 3: TLB Lookup (Fast Hardware Cache) -->
+          <div class="pipeline-node node-wide" id="nodeTLB">
+            <div class="node-header d-flex justify-content-between align-items-center">
+              <div>
+                <span class="node-step-tag">STAGE 3</span>
+                <span class="node-title"><i class="bi bi-motherboard me-1"></i>TLB Lookup</span>
+              </div>
+              <span class="badge bg-light text-primary border fs-xs" id="tlbCapacityBadge">Cap: 3 Slots</span>
+            </div>
+            <div class="node-body p-2">
+              <div class="table-responsive">
+                <table class="table table-light table-sm table-borderless text-center align-middle mb-0 tlb-visual-table" id="tlbVisualTable">
+                  <thead>
+                    <tr class="text-secondary border-bottom fs-xs">
+                      <th>Slot</th>
+                      <th id="thTlbKey">VPN</th>
+                      <th id="thTlbVal">PFN</th>
+                      <th id="thTlbExtra">FIFO</th>
+                      <th>State</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tlbTableBody">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="tlb-lookup-status text-center mt-2 py-1 px-2 rounded fs-xs font-monospace" id="tlbLookupMsg">
+                <i class="bi bi-search me-1"></i> Ready for address request...
+              </div>
+            </div>
+          </div>
+
+          <!-- STAGE 4: Physical Address Output -->
+          <div class="pipeline-node" id="nodePhysicalAddress">
+            <div class="node-header">
+              <span class="node-step-tag">STAGE 4</span>
+              <span class="node-title"><i class="bi bi-memory me-1"></i>Physical Address</span>
+            </div>
+            <div class="node-body text-center">
+              <div class="decomp-row mb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="decomp-label text-secondary">Retrieved PFN</span>
+                  <span class="display-sm font-monospace text-success fw-bold" id="dispPFN">--</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                  <span class="decomp-label text-secondary">Applied Offset</span>
+                  <span class="display-sm font-monospace text-amber fw-bold" id="dispFinalOffset">--</span>
+                </div>
+              </div>
+
+              <div class="pa-box p-2 rounded bg-light border">
+                <div class="fs-xs text-secondary font-monospace" id="dispPaFormula">
+                  PA = (PFN &times; PageSize) + Offset
+                </div>
+                <div class="display-value font-monospace text-success mt-1" id="dispPhysicalAddress">
+                  --
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Page Table: Main Memory Reference (Outside Pipeline, Activated on Miss) -->
+        <div class="card card-custom p-3 card-page-table-ref" id="nodePageTable">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2 pb-2 border-bottom">
+            <div>
+              <h6 class="fw-bold text-navy mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-hdd-network text-danger fs-5"></i>
+                <span>Page Table &mdash; Main Memory Reference</span>
+              </h6>
+              <div class="fs-xs text-secondary mt-1">
+                Main memory resident table. Queried only when a TLB miss occurs; bypassed completely on a TLB hit.
+              </div>
+            </div>
+            <span class="badge bg-white text-secondary border fs-xs" id="ptRefStatusBadge">
+              <i class="bi bi-database me-1"></i>DRAM Storage (Standby)
+            </span>
+          </div>
+
+          <!-- Context-Aware Memory Walk Live Status -->
+          <div class="pt-walk-status text-center mb-2 py-2 px-3 rounded fs-xs font-monospace bg-white border" id="ptWalkMsg">
+            <i class="bi bi-shield-check text-success me-1"></i>Standby &bull; Awaiting address translation
+          </div>
+
+          <div class="page-table-scroll-container">
+            <table class="table table-light table-sm table-hover align-middle mb-0 font-monospace fs-xs" id="ptVisualTable">
+              <thead>
+                <tr class="text-secondary border-bottom">
+                  <th>VPN</th>
+                  <th>Physical Frame (PFN)</th>
+                  <th>Memory Status</th>
+                </tr>
+              </thead>
+              <tbody id="ptTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <!-- Compatibility container -->
+          <div class="d-none" id="memoryPtTableBody"></div>
+        </div>
+
+      </div>
+
+      <!-- Mode 3: Dual Comparison View -->
+      <div id="compareSimulationView" class="d-none">
+        <div class="row g-3">
+          
+          <!-- Traditional TLB Engine -->
+          <div class="col-lg-6">
+            <div class="card card-custom h-100 p-3 border-primary-subtle shadow-sm">
+              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-primary text-white">MODE 1</span>
+                  <h6 class="fw-bold mb-0 text-navy">Traditional TLB Engine</h6>
+                </div>
+                <span class="badge bg-light text-primary border font-monospace" id="compareTradOutcome">Standby</span>
+              </div>
+
+              <!-- Traditional Hardware Data-Path Track -->
+              <div class="pipeline-packet-rail-container mb-3 p-2 rounded bg-light border" id="compareTradPacketRailContainer">
+                <div class="d-flex align-items-center justify-content-between mb-1 px-1">
+                  <span class="fs-xs fw-bold text-secondary text-uppercase d-flex align-items-center gap-1">
+                    <i class="bi bi-hdd text-primary"></i> Data-Path Track:
+                  </span>
+                  <span class="badge bg-white text-secondary border font-monospace fs-xs" id="compareTradPacketStatus">
+                    Standby
+                  </span>
+                </div>
+                <div class="packet-track-wrapper position-relative my-2">
+                  <div class="packet-track-line">
+                    <div class="packet-track-fill" id="compareTradTrackFill" style="width: 0%;"></div>
+                  </div>
+                  <div class="moving-address-packet shadow-sm" id="compareTradPacket" style="left: 0%;">
+                    <i class="bi bi-box-seam me-1 text-primary" id="compareTradPacketIcon"></i>
+                    <strong id="compareTradPacketVal">VA --</strong>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-between px-1 text-muted fs-xs font-monospace">
+                  <span>CPU</span>
+                  <span>Split</span>
+                  <span>TLB Probe</span>
+                  <span>RAM Access</span>
+                </div>
+              </div>
+
+              <!-- Traditional TLB Slots -->
+              <div class="table-responsive mb-3">
+                <table class="table table-light table-sm table-borderless text-center align-middle mb-0 tlb-visual-table">
+                  <thead>
+                    <tr class="text-secondary border-bottom fs-xs">
+                      <th>Slot</th>
+                      <th>VPN</th>
+                      <th>PFN</th>
+                      <th>FIFO Order</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compareTradTableBody"></tbody>
+                </table>
+              </div>
+
+              <!-- Traditional Output Strip -->
+              <div class="p-2 rounded bg-light border font-monospace fs-xs mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="text-secondary">Current VA:</span>
+                  <span class="text-primary fw-bold" id="compareTradVA">--</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="text-secondary">VPN / Offset:</span>
+                  <span class="text-primary fw-bold" id="compareTradVpnOff">--</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-secondary">Physical Address:</span>
+                  <span class="text-success fw-bold" id="compareTradPA">--</span>
+                </div>
+              </div>
+
+              <!-- Traditional Mini Metrics -->
+              <div class="row g-2 text-center fs-xs font-monospace mt-auto">
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Hits</div>
+                    <div class="text-success fw-bold" id="compareTradHits">0</div>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Misses</div>
+                    <div class="text-danger fw-bold" id="compareTradMisses">0</div>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Hit Rate</div>
+                    <div class="text-primary fw-bold" id="compareTradHitRate">0.0%</div>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">PT Walks</div>
+                    <div class="text-amber fw-bold" id="compareTradWalks">0</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Research Coalesced TLB Engine -->
+          <div class="col-lg-6">
+            <div class="card card-custom h-100 p-3 border-purple-subtle shadow-sm">
+              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-purple text-white">MODE 2</span>
+                  <h6 class="fw-bold mb-0 text-navy">Research Coalescing TLB</h6>
+                </div>
+                <span class="badge bg-light text-purple border font-monospace" id="compareResearchOutcome">Standby</span>
+              </div>
+
+              <!-- Coalesced Hardware Data-Path Track -->
+              <div class="pipeline-packet-rail-container mb-3 p-2 rounded bg-light border" id="compareResearchPacketRailContainer">
+                <div class="d-flex align-items-center justify-content-between mb-1 px-1">
+                  <span class="fs-xs fw-bold text-secondary text-uppercase d-flex align-items-center gap-1">
+                    <i class="bi bi-lightning-charge text-purple"></i> Data-Path Track:
+                  </span>
+                  <span class="badge bg-white text-secondary border font-monospace fs-xs" id="compareResearchPacketStatus">
+                    Standby
+                  </span>
+                </div>
+                <div class="packet-track-wrapper position-relative my-2">
+                  <div class="packet-track-line">
+                    <div class="packet-track-fill" id="compareResearchTrackFill" style="width: 0%;"></div>
+                  </div>
+                  <div class="moving-address-packet shadow-sm" id="compareResearchPacket" style="left: 0%;">
+                    <i class="bi bi-box-seam me-1 text-purple" id="compareResearchPacketIcon"></i>
+                    <strong id="compareResearchPacketVal">VA --</strong>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-between px-1 text-muted fs-xs font-monospace">
+                  <span>CPU</span>
+                  <span>Split</span>
+                  <span>Range Probe</span>
+                  <span>RAM Access</span>
+                </div>
+              </div>
+
+              <!-- Research Coalesced Blocks -->
+              <div class="table-responsive mb-3">
+                <table class="table table-light table-sm table-borderless text-center align-middle mb-0 tlb-visual-table">
+                  <thead>
+                    <tr class="text-secondary border-bottom fs-xs">
+                      <th>Slot</th>
+                      <th>VPN Range</th>
+                      <th>Base PFN</th>
+                      <th>Size</th>
+                      <th>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compareResearchTableBody"></tbody>
+                </table>
+              </div>
+
+              <!-- Research Output Strip -->
+              <div class="p-2 rounded bg-light border font-monospace fs-xs mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="text-secondary">Current VA:</span>
+                  <span class="text-primary fw-bold" id="compareResearchVA">--</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                  <span class="text-secondary">Matched Block:</span>
+                  <span class="text-purple fw-bold" id="compareResearchBlock">--</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-secondary">Physical Address:</span>
+                  <span class="text-success fw-bold" id="compareResearchPA">--</span>
+                </div>
+              </div>
+
+              <!-- Research Mini Metrics -->
+              <div class="row g-2 text-center fs-xs font-monospace mt-auto">
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Hits</div>
+                    <div class="text-success fw-bold" id="compareResearchHits">0</div>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Misses</div>
+                    <div class="text-danger fw-bold" id="compareResearchMisses">0</div>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Hit Rate</div>
+                    <div class="text-primary fw-bold" id="compareResearchHitRate">0.0%</div>
+                  </div>
+                </div>
+                <div class="col-3">
+                  <div class="p-1 rounded bg-light border">
+                    <div class="text-secondary">Demand/Pref</div>
+                    <div class="text-purple fw-bold" id="compareResearchWalks">0 / 0</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =========================================================================
+         SECTION C: SIMPLE COLLAPSIBLE THEORY & EDUCATIONAL GUIDE
+         ========================================================================= -->
+    <div class="collapse mb-4" id="learnMoreDrawer">
+      <div class="card card-custom p-4 shadow-sm border-primary-subtle">
+        
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-book-half text-primary fs-5"></i>
+            <h5 class="fw-bold mb-0 text-navy">Educational Theory &amp; Concepts Guide</h5>
+          </div>
+          <button type="button" class="btn-close" data-bs-toggle="collapse" data-bs-target="#learnMoreDrawer" aria-label="Close"></button>
+        </div>
+
+        <div class="row g-3">
+          <!-- Card 1: Math -->
+          <div class="col-md-4">
+            <div class="concept-card h-100 p-3 rounded bg-light border">
+              <h6 class="text-primary fw-semibold"><i class="bi bi-calculator me-1"></i> Address Translation Math</h6>
+              <p class="small text-secondary mb-1">Virtual addresses are split into two parts:</p>
+              <div class="code-pill mb-1">VPN = &lfloor;Virtual Address / Page Size&rfloor;</div>
+              <div class="code-pill mb-1">Offset = Virtual Address % Page Size</div>
+              <div class="code-pill">Physical Address = (PFN &times; Page Size) + Offset</div>
+              <p class="small text-muted mt-2 mb-0">The TLB accelerates lookup by caching recent (VPN &rarr; PFN) translations directly inside the MMU.</p>
+            </div>
+          </div>
+
+          <!-- Card 2: Traditional vs FIFO -->
+          <div class="col-md-4">
+            <div class="concept-card h-100 p-3 rounded bg-light border">
+              <h6 class="text-success fw-semibold"><i class="bi bi-lightning-charge me-1"></i> Traditional TLB vs FIFO</h6>
+              <p class="small text-secondary mb-2">
+                Stores individual page translations. On TLB Hit, physical frame is retrieved in ~1 clock cycle.
+              </p>
+              <p class="small text-secondary mb-2">
+                On TLB Miss, a slower <strong>Demand Page-Table Walk</strong> in main memory occurs. The mapping is then cached.
+              </p>
+              <p class="small text-muted mb-0">
+                <strong>FIFO Policy:</strong> When full, the earliest inserted entry is evicted regardless of recent use.
+              </p>
+            </div>
+          </div>
+
+          <!-- Card 3: Research Coalescing -->
+          <div class="col-md-4">
+            <div class="concept-card h-100 p-3 rounded bg-light border">
+              <h6 class="text-purple fw-semibold"><i class="bi bi-award me-1"></i> Research Coalescing &amp; Prefetch</h6>
+              <p class="small text-secondary mb-2">
+                Inspired by <em>"Contiguity aware TLB prefetching for embedded I/O devices"</em> (IEICE Electronics Express, 2025).
+              </p>
+              <p class="small text-secondary mb-2">
+                <strong>Coalescing:</strong> Multiple consecutive virtual pages are merged into one TLB slot when their physical frames are consecutive.
+              </p>
+              <p class="small text-muted mb-0">
+                <strong>Prefetching:</strong> On a block hit, the next sequential block <code>(Start + Size)</code> is automatically pre-cached ahead of demand.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Application Footer -->
+  <footer class="app-footer py-3 border-top text-secondary fs-xs bg-white">
+    <div class="container-fluid px-lg-5 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div>
+        <span>Second Year Computer Engineering &bull; Operating Systems Lab Assignment</span>
+      </div>
+      <div class="text-end">
+        <span>Research Reference: Tran Dai Duong &amp; Jae Young Hur, <em>IEICE Electronics Express</em> (2025)</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap 5.3.3 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Core Simulation Application Logic -->
+  <script src="script.js"></script>
+</body>
+</html>
